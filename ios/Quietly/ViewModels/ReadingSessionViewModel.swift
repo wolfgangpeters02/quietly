@@ -1,6 +1,8 @@
 import Foundation
 import SwiftUI
+import SwiftData
 import Combine
+import ActivityKit
 
 @MainActor
 final class ReadingSessionViewModel: ObservableObject {
@@ -31,6 +33,7 @@ final class ReadingSessionViewModel: ObservableObject {
     private let sessionService = SessionService()
     private let noteService = NoteService()
     private let bookService = BookService()
+    private let activityService = ReadingActivityService.shared
 
     // MARK: - Computed Properties
     var formattedTime: String {
@@ -54,134 +57,148 @@ final class ReadingSessionViewModel: ObservableObject {
     }
 
     // MARK: - Session Lifecycle
-    func checkForActiveSession() async {
-        do {
-            if let activeSession = try await sessionService.fetchActiveSession(bookId: book.id) {
-                session = activeSession
-                startPage = activeSession.startPage ?? 0
-                totalPausedSeconds = activeSession.pausedDurationSeconds ?? 0
+    func checkForActiveSession(context: ModelContext) {
+        if let activeSession = sessionService.fetchActiveSession(book: book, context: context) {
+            session = activeSession
+            startPage = activeSession.startPage ?? 0
+            totalPausedSeconds = activeSession.pausedDurationSeconds ?? 0
 
-                // Calculate elapsed time
-                let elapsed = TimeFormatter.calculateElapsedSeconds(
-                    from: activeSession.startedAt,
-                    pausedDuration: totalPausedSeconds
-                )
-                elapsedSeconds = elapsed
-
-                if activeSession.isPaused {
-                    isPaused = true
-                    pauseStartTime = activeSession.pausedAt
-                } else {
-                    isReading = true
-                    startTimer()
-                }
-            }
-        } catch {
-            self.error = error.localizedDescription
-        }
-    }
-
-    func startSession() async {
-        do {
-            let newSession = try await sessionService.startSession(
-                bookId: book.id,
-                startPage: startPage > 0 ? startPage : nil
+            // Calculate elapsed time
+            let elapsed = TimeFormatter.calculateElapsedSeconds(
+                from: activeSession.startedAt,
+                pausedDuration: totalPausedSeconds
             )
-            session = newSession
-            isReading = true
-            elapsedSeconds = 0
-            totalPausedSeconds = 0
-            startTimer()
-        } catch {
-            self.error = error.localizedDescription
+            elapsedSeconds = elapsed
+
+            if activeSession.isPaused {
+                isPaused = true
+                pauseStartTime = activeSession.pausedAt
+            } else {
+                isReading = true
+                startTimer()
+            }
         }
     }
 
-    func pauseSession() async {
-        guard let sessionId = session?.id else { return }
+    func startSession(context: ModelContext) {
+        let newSession = sessionService.startSession(
+            book: book,
+            startPage: startPage > 0 ? startPage : nil,
+            context: context
+        )
+        session = newSession
+        isReading = true
+        elapsedSeconds = 0
+        totalPausedSeconds = 0
+        startTimer()
+        HapticService.shared.sessionStarted()
 
-        do {
-            try await sessionService.pauseSession(sessionId: sessionId)
-            stopTimer()
-            isPaused = true
-            isReading = false
-            pauseStartTime = Date()
-        } catch {
-            self.error = error.localizedDescription
-        }
+        // Start Live Activity
+        activityService.startActivity(
+            bookTitle: book.title,
+            bookAuthor: book.author,
+            startPage: startPage > 0 ? startPage : nil
+        )
     }
 
-    func resumeSession() async {
-        guard let sessionId = session?.id,
+    func pauseSession(context: ModelContext) {
+        guard let currentSession = session else { return }
+
+        sessionService.pauseSession(currentSession, context: context)
+        stopTimer()
+        isPaused = true
+        isReading = false
+        pauseStartTime = Date()
+        HapticService.shared.sessionPaused()
+
+        // Update Live Activity
+        activityService.updateActivity(
+            elapsedSeconds: elapsedSeconds,
+            isPaused: true,
+            currentPage: endPage > 0 ? endPage : nil
+        )
+    }
+
+    func resumeSession(context: ModelContext) {
+        guard let currentSession = session,
               let pauseStart = pauseStartTime else { return }
 
         let additionalPausedSeconds = Int(Date().timeIntervalSince(pauseStart))
 
-        do {
-            try await sessionService.resumeSession(
-                sessionId: sessionId,
-                additionalPausedSeconds: additionalPausedSeconds
-            )
-            totalPausedSeconds += additionalPausedSeconds
-            pauseStartTime = nil
-            isPaused = false
-            isReading = true
-            startTimer()
-        } catch {
-            self.error = error.localizedDescription
-        }
+        sessionService.resumeSession(currentSession, additionalPausedSeconds: additionalPausedSeconds, context: context)
+        totalPausedSeconds += additionalPausedSeconds
+        pauseStartTime = nil
+        isPaused = false
+        isReading = true
+        startTimer()
+        HapticService.shared.sessionResumed()
+
+        // Update Live Activity
+        activityService.updateActivity(
+            elapsedSeconds: elapsedSeconds,
+            isPaused: false,
+            currentPage: endPage > 0 ? endPage : nil
+        )
     }
 
-    func endSession() async -> Bool {
-        guard let sessionId = session?.id else { return false }
+    func endSession(context: ModelContext) -> Bool {
+        guard let currentSession = session else { return false }
 
         // If paused, add remaining paused time
         if isPaused, let pauseStart = pauseStartTime {
             totalPausedSeconds += Int(Date().timeIntervalSince(pauseStart))
         }
 
-        do {
-            stopTimer()
+        stopTimer()
 
-            try await sessionService.endSession(
-                sessionId: sessionId,
-                endPage: endPage > 0 ? endPage : nil,
-                durationSeconds: elapsedSeconds,
-                pagesRead: pagesRead > 0 ? pagesRead : nil
-            )
+        sessionService.endSession(
+            currentSession,
+            endPage: endPage > 0 ? endPage : nil,
+            durationSeconds: elapsedSeconds,
+            pagesRead: pagesRead > 0 ? pagesRead : nil,
+            context: context
+        )
 
-            // Update current page on the book
-            if endPage > 0 {
-                try await bookService.updateCurrentPage(
-                    userBookId: userBook.id,
-                    page: endPage
-                )
+        // Update current page on the book
+        if endPage > 0 {
+            bookService.updateCurrentPage(userBook: userBook, page: endPage, context: context)
 
-                // Check if book is completed
-                if let pageCount = book.pageCount, endPage >= pageCount {
-                    try await bookService.updateStatus(
-                        userBookId: userBook.id,
-                        status: .completed
-                    )
-                }
+            // Check if book is completed
+            if let pageCount = book.pageCount, endPage >= pageCount {
+                bookService.updateStatus(userBook: userBook, status: .completed, context: context)
+                HapticService.shared.bookCompleted()
+            } else {
+                HapticService.shared.sessionEnded()
             }
-
-            session = nil
-            isReading = false
-            isPaused = false
-
-            return true
-        } catch {
-            self.error = error.localizedDescription
-            return false
+        } else {
+            HapticService.shared.sessionEnded()
         }
+
+        // End Live Activity
+        activityService.endActivity(showSummary: true)
+
+        session = nil
+        isReading = false
+        isPaused = false
+
+        return true
     }
 
     // MARK: - Timer Management
     private func startTimer() {
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.elapsedSeconds += 1
+                guard let self = self else { return }
+                self.elapsedSeconds += 1
+
+                // Update Live Activity every 10 seconds to save battery
+                if self.elapsedSeconds % 10 == 0 {
+                    self.activityService.updateActivity(
+                        elapsedSeconds: self.elapsedSeconds,
+                        isPaused: false,
+                        currentPage: self.endPage > 0 ? self.endPage : nil
+                    )
+                }
             }
         }
     }
@@ -192,35 +209,42 @@ final class ReadingSessionViewModel: ObservableObject {
     }
 
     // MARK: - Notes
-    func addSessionNote() async {
+    func addSessionNote(context: ModelContext) {
         guard !noteContent.trimmed.isEmpty else { return }
 
-        do {
-            let note = try await noteService.addNote(
-                bookId: book.id,
-                content: noteContent.trimmed,
-                noteType: .note,
-                pageNumber: nil
-            )
-            sessionNotes.append(note)
-            noteContent = ""
-        } catch {
-            self.error = error.localizedDescription
-        }
+        let note = noteService.addNote(
+            book: book,
+            content: noteContent.trimmed,
+            noteType: .note,
+            pageNumber: nil,
+            context: context
+        )
+        sessionNotes.append(note)
+        noteContent = ""
     }
 
-    func deleteNote(_ note: Note) async {
-        do {
-            try await noteService.deleteNote(noteId: note.id)
-            sessionNotes.removeAll { $0.id == note.id }
-        } catch {
-            self.error = error.localizedDescription
-        }
+    func addScannedQuote(_ text: String, context: ModelContext) {
+        guard !text.trimmed.isEmpty else { return }
+
+        let note = noteService.addNote(
+            book: book,
+            content: text.trimmed,
+            noteType: .quote,
+            pageNumber: nil,
+            context: context
+        )
+        sessionNotes.append(note)
+    }
+
+    func deleteNote(_ note: Note, context: ModelContext) {
+        noteService.deleteNote(note, context: context)
+        sessionNotes.removeAll { $0.id == note.id }
     }
 
     // MARK: - Cleanup
     func cleanup() {
         stopTimer()
+        // Don't end activity on cleanup - user might come back
     }
 
     func clearError() {

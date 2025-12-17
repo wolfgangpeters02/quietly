@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import SwiftData
 
 @MainActor
 final class BookDetailViewModel: ObservableObject {
@@ -46,100 +47,76 @@ final class BookDetailViewModel: ObservableObject {
     }
 
     // MARK: - Data Loading
-    func loadData() async {
+    func loadData(context: ModelContext) {
         isLoading = true
 
-        do {
-            guard let bookId = book?.id else { return }
-
-            async let notesTask = noteService.fetchNotes(bookId: bookId)
-            async let statsTask = sessionService.getBookStats(bookId: bookId)
-
-            let (fetchedNotes, fetchedStats) = try await (notesTask, statsTask)
-
-            notes = fetchedNotes
-            bookStats = fetchedStats
-
-        } catch {
-            self.error = error.localizedDescription
+        guard let book = book else {
+            isLoading = false
+            return
         }
+
+        notes = noteService.fetchNotes(book: book, context: context)
+        bookStats = sessionService.getBookStats(book: book, context: context)
 
         isLoading = false
     }
 
     // MARK: - Status Actions
-    func updateStatus(_ status: ReadingStatus) async {
-        do {
-            try await bookService.updateStatus(userBookId: userBook.id, status: status)
-            userBook.status = status
+    func updateStatus(_ status: ReadingStatus, context: ModelContext) {
+        bookService.updateStatus(userBook: userBook, status: status, context: context)
+        userBook.status = status
 
-            if status == .completed {
-                NotificationService.shared.sendBookCompletionNotification(
-                    bookTitle: book?.title ?? "your book"
-                )
-            }
-        } catch {
-            self.error = error.localizedDescription
+        if status == .completed {
+            NotificationService.shared.sendBookCompletionNotification(
+                bookTitle: book?.title ?? "your book"
+            )
+            HapticService.shared.bookCompleted()
+        } else {
+            HapticService.shared.selectionChanged()
         }
     }
 
     // MARK: - Rating Actions
-    func updateRating(_ rating: Int) async {
-        do {
-            try await bookService.updateRating(userBookId: userBook.id, rating: rating)
-            userBook.rating = rating
-        } catch {
-            self.error = error.localizedDescription
-        }
+    func updateRating(_ rating: Int, context: ModelContext) {
+        bookService.updateRating(userBook: userBook, rating: rating, context: context)
+        userBook.rating = rating
     }
 
     // MARK: - Note Actions
-    func addNote() async {
+    func addNote(context: ModelContext) {
         guard !noteContent.trimmed.isEmpty else { return }
+        guard let book = book else { return }
 
-        do {
-            guard let bookId = book?.id else { return }
+        let pageNum = Int(notePageNumber)
+        let note = noteService.addNote(
+            book: book,
+            content: noteContent.trimmed,
+            noteType: noteType,
+            pageNumber: pageNum,
+            context: context
+        )
 
-            let pageNum = Int(notePageNumber)
-            let note = try await noteService.addNote(
-                bookId: bookId,
-                content: noteContent.trimmed,
-                noteType: noteType,
-                pageNumber: pageNum
-            )
-
-            notes.insert(note, at: 0)
-            clearNoteForm()
-
-        } catch {
-            self.error = error.localizedDescription
-        }
+        notes.insert(note, at: 0)
+        clearNoteForm()
     }
 
-    func addNoteFromScan(_ text: String) async {
+    func addNoteFromScan(_ text: String, context: ModelContext) {
         noteContent = text
         noteType = .quote
-        await addNote()
+        addNote(context: context)
     }
 
-    func deleteNote(_ note: Note) async {
-        do {
-            try await noteService.deleteNote(noteId: note.id)
-            notes.removeAll { $0.id == note.id }
-        } catch {
-            self.error = error.localizedDescription
-        }
+    func deleteNote(_ note: Note, context: ModelContext) {
+        noteService.deleteNote(note, context: context)
+        notes.removeAll { $0.id == note.id }
+        HapticService.shared.deleted()
     }
 
     // MARK: - Delete Book
-    func removeFromLibrary() async -> Bool {
-        do {
-            try await bookService.removeFromLibrary(userBookId: userBook.id)
-            return true
-        } catch {
-            self.error = error.localizedDescription
-            return false
-        }
+    func removeFromLibrary(context: ModelContext) -> Bool {
+        bookService.removeFromLibrary(userBook: userBook, context: context)
+        HapticService.shared.deleted()
+        return true
     }
 
     // MARK: - Private Methods

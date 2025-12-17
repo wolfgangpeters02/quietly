@@ -1,33 +1,30 @@
 import Foundation
+import SwiftData
 
-struct Book: Codable, Identifiable, Hashable {
-    let id: UUID
-    let isbn: String?
-    let title: String
-    let author: String?
-    let coverUrl: String?
-    let publisher: String?
-    let publishedDate: String?
-    let description: String?
-    let pageCount: Int?
-    let manualEntry: Bool?
-    let createdAt: Date
+@Model
+final class Book {
+    @Attribute(.unique) var id: UUID
+    var isbn: String?
+    var title: String
+    var author: String?
+    var coverUrl: String?
+    var publisher: String?
+    var publishedDate: String?
+    var bookDescription: String?
+    var pageCount: Int?
+    var manualEntry: Bool
+    var createdAt: Date
 
-    enum CodingKeys: String, CodingKey {
-        case id
-        case isbn
-        case title
-        case author
-        case coverUrl = "cover_url"
-        case publisher
-        case publishedDate = "published_date"
-        case description
-        case pageCount = "page_count"
-        case manualEntry = "manual_entry"
-        case createdAt = "created_at"
-    }
+    // Relationships
+    @Relationship(deleteRule: .cascade, inverse: \UserBook.book)
+    var userBooks: [UserBook] = []
 
-    // For creating new books
+    @Relationship(deleteRule: .cascade, inverse: \Note.book)
+    var notes: [Note] = []
+
+    @Relationship(deleteRule: .cascade, inverse: \ReadingSession.book)
+    var sessions: [ReadingSession] = []
+
     init(
         id: UUID = UUID(),
         isbn: String? = nil,
@@ -36,9 +33,9 @@ struct Book: Codable, Identifiable, Hashable {
         coverUrl: String? = nil,
         publisher: String? = nil,
         publishedDate: String? = nil,
-        description: String? = nil,
+        bookDescription: String? = nil,
         pageCount: Int? = nil,
-        manualEntry: Bool? = false,
+        manualEntry: Bool = false,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -48,46 +45,9 @@ struct Book: Codable, Identifiable, Hashable {
         self.coverUrl = coverUrl
         self.publisher = publisher
         self.publishedDate = publishedDate
-        self.description = description
+        self.bookDescription = bookDescription
         self.pageCount = pageCount
         self.manualEntry = manualEntry
         self.createdAt = createdAt
-    }
-}
-
-// MARK: - Insert Model (for creating new books)
-struct BookInsert: Codable {
-    let isbn: String?
-    let title: String
-    let author: String?
-    let coverUrl: String?
-    let publisher: String?
-    let publishedDate: String?
-    let description: String?
-    let pageCount: Int?
-    let manualEntry: Bool?
-
-    enum CodingKeys: String, CodingKey {
-        case isbn
-        case title
-        case author
-        case coverUrl = "cover_url"
-        case publisher
-        case publishedDate = "published_date"
-        case description
-        case pageCount = "page_count"
-        case manualEntry = "manual_entry"
-    }
-
-    init(from book: Book) {
-        self.isbn = book.isbn
-        self.title = book.title
-        self.author = book.author
-        self.coverUrl = book.coverUrl
-        self.publisher = book.publisher
-        self.publishedDate = book.publishedDate
-        self.description = book.description
-        self.pageCount = book.pageCount
-        self.manualEntry = book.manualEntry
     }
 }

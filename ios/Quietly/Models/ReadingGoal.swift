@@ -1,37 +1,30 @@
 import Foundation
+import SwiftData
 
-struct ReadingGoal: Codable, Identifiable {
-    let id: UUID
-    let userId: UUID
-    let goalType: GoalType
+@Model
+final class ReadingGoal {
+    @Attribute(.unique) var id: UUID
+    var goalType: GoalType
     var targetValue: Int
-    let createdAt: Date
+    var createdAt: Date
     var updatedAt: Date
 
-    enum CodingKeys: String, CodingKey {
-        case id
-        case userId = "user_id"
-        case goalType = "goal_type"
-        case targetValue = "target_value"
-        case createdAt = "created_at"
-        case updatedAt = "updated_at"
+    init(
+        id: UUID = UUID(),
+        goalType: GoalType,
+        targetValue: Int,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.goalType = goalType
+        self.targetValue = targetValue
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
     }
 
     var displayTarget: String {
         "\(targetValue) \(goalType.unit)"
-    }
-}
-
-// MARK: - Insert Model
-struct ReadingGoalInsert: Codable {
-    let userId: UUID
-    let goalType: GoalType
-    let targetValue: Int
-
-    enum CodingKeys: String, CodingKey {
-        case userId = "user_id"
-        case goalType = "goal_type"
-        case targetValue = "target_value"
     }
 }
 

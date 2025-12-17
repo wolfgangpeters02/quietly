@@ -1,37 +1,17 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @EnvironmentObject var authService: AuthService
-    @State private var showSignOutConfirmation = false
-
     var body: some View {
         NavigationStack {
             List {
-                // Account section
-                Section {
-                    if let email = authService.currentUser?.email {
-                        HStack {
-                            Image(systemName: "person.circle.fill")
-                                .font(.title)
-                                .foregroundColor(Color.quietly.primary)
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Signed in as")
-                                    .font(.caption)
-                                    .foregroundColor(Color.quietly.textSecondary)
-
-                                Text(email)
-                                    .font(.subheadline)
-                                    .foregroundColor(Color.quietly.textPrimary)
-                            }
-                        }
-                    }
-                } header: {
-                    Text("Account")
-                }
-
                 // App section
                 Section {
+                    NavigationLink {
+                        ReadingHistoryView()
+                    } label: {
+                        Label("Reading History", systemImage: "calendar")
+                    }
+
                     NavigationLink {
                         NotificationsView()
                     } label: {
@@ -74,35 +54,28 @@ struct SettingsView: View {
                     Text("About")
                 }
 
-                // Sign out
+                // Data section
                 Section {
-                    Button(role: .destructive) {
-                        showSignOutConfirmation = true
-                    } label: {
-                        HStack {
-                            Spacer()
-                            Text("Sign Out")
-                            Spacer()
+                    HStack {
+                        Image(systemName: "externaldrive.fill")
+                            .foregroundColor(Color.quietly.primary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Local Storage")
+                                .font(.subheadline)
+                            Text("Your data is stored locally on this device")
+                                .font(.caption)
+                                .foregroundColor(Color.quietly.textSecondary)
                         }
                     }
+                } header: {
+                    Text("Data")
                 }
             }
             .navigationTitle("Settings")
-            .alert("Sign Out", isPresented: $showSignOutConfirmation) {
-                Button("Cancel", role: .cancel) {}
-                Button("Sign Out", role: .destructive) {
-                    Task {
-                        try? await authService.signOut()
-                    }
-                }
-            } message: {
-                Text("Are you sure you want to sign out?")
-            }
         }
     }
 }
 
 #Preview {
     SettingsView()
-        .environmentObject(AuthService())
 }

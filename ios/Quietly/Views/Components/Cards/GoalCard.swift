@@ -4,6 +4,8 @@ struct GoalCard: View {
     let progress: GoalProgress
     var onDelete: (() -> Void)?
 
+    @State private var hasAppeared = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Header
@@ -11,7 +13,8 @@ struct GoalCard: View {
                 HStack(spacing: 8) {
                     Image(systemName: progress.goal.goalType.iconName)
                         .font(.title3)
-                        .foregroundColor(Color.quietly.accent)
+                        .foregroundColor(progress.isComplete ? Color.quietly.success : Color.quietly.accent)
+                        .symbolEffect(.bounce, value: progress.isComplete && hasAppeared)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(progress.goal.goalType.displayName)
@@ -59,6 +62,7 @@ struct GoalCard: View {
                 HStack {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundColor(Color.quietly.success)
+                        .symbolEffect(.pulse.wholeSymbol, options: .repeating.speed(0.5), value: hasAppeared)
 
                     Text("Goal achieved!")
                         .font(.caption)
@@ -71,6 +75,9 @@ struct GoalCard: View {
         .background(Color.quietly.card)
         .cornerRadius(AppConstants.UI.cornerRadius)
         .shadow(color: Color.quietly.shadow, radius: 4, x: 0, y: 2)
+        .onAppear {
+            hasAppeared = true
+        }
     }
 }
 

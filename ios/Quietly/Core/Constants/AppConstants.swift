@@ -1,13 +1,6 @@
 import Foundation
 
 enum AppConstants {
-    // MARK: - Supabase Configuration
-    enum Supabase {
-        static let projectId = "vmfrjxodsgfjjigharxm"
-        static let url = URL(string: "https://vmfrjxodsgfjjigharxm.supabase.co")!
-        static let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZtZnJqeG9kc2dmamppZ2hhcnhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3MTE1MzUsImV4cCI6MjA3NzI4NzUzNX0.nYUHnoUyxiAF6qUkAHPW9BLXPbmnCfHc6q1eyYj1peU"
-    }
-
     // MARK: - OpenLibrary API
     enum OpenLibrary {
         static let baseUrl = "https://openlibrary.org"
@@ -56,13 +49,6 @@ enum AppConstants {
         static let minPasswordLength = 6
         static let maxTitleLength = 200
         static let maxNoteLength = 5000
-    }
-
-    // MARK: - Keychain Keys
-    enum Keychain {
-        static let accessToken = "quietly.access_token"
-        static let refreshToken = "quietly.refresh_token"
-        static let userId = "quietly.user_id"
     }
 
     // MARK: - UserDefaults Keys

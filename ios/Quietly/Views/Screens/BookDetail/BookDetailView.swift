@@ -1,6 +1,8 @@
 import SwiftUI
+import SwiftData
 
 struct BookDetailView: View {
+    @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel: BookDetailViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var showReadingSession = false
@@ -33,24 +35,38 @@ struct BookDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Menu {
-                    ForEach(ReadingStatus.allCases) { status in
-                        Button {
-                            Task { await viewModel.updateStatus(status) }
-                        } label: {
-                            Label(status.displayName, systemImage: status.iconName)
+                HStack(spacing: 8) {
+                    // Share button
+                    if let book = viewModel.book {
+                        ShareLink(
+                            item: "I'm reading \"\(book.title)\"" + (book.author.map { " by \($0)" } ?? "") + " 📚",
+                            subject: Text(book.title),
+                            message: Text("Check out this book!")
+                        ) {
+                            Image(systemName: "square.and.arrow.up")
                         }
                     }
 
-                    Divider()
+                    // More options menu
+                    Menu {
+                        ForEach(ReadingStatus.allCases) { status in
+                            Button {
+                                viewModel.updateStatus(status, context: modelContext)
+                            } label: {
+                                Label(status.displayName, systemImage: status.iconName)
+                            }
+                        }
 
-                    Button(role: .destructive) {
-                        viewModel.showDeleteConfirmation = true
+                        Divider()
+
+                        Button(role: .destructive) {
+                            viewModel.showDeleteConfirmation = true
+                        } label: {
+                            Label("Remove from Library", systemImage: "trash")
+                        }
                     } label: {
-                        Label("Remove from Library", systemImage: "trash")
+                        Image(systemName: "ellipsis.circle")
                     }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
                 }
             }
         }
@@ -59,20 +75,27 @@ struct BookDetailView: View {
                 ReadingSessionView(userBook: viewModel.userBook)
             }
         }
-        .alert("Remove Book", isPresented: $viewModel.showDeleteConfirmation) {
-            Button("Cancel", role: .cancel) {}
-            Button("Remove", role: .destructive) {
-                Task {
-                    if await viewModel.removeFromLibrary() {
-                        dismiss()
-                    }
+        .sheet(isPresented: $viewModel.showScanText) {
+            ScanTextSheet { scannedText in
+                viewModel.addNoteFromScan(scannedText, context: modelContext)
+            }
+        }
+        .confirmationDialog(
+            "Remove Book",
+            isPresented: $viewModel.showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Remove from Library", role: .destructive) {
+                if viewModel.removeFromLibrary(context: modelContext) {
+                    dismiss()
                 }
             }
+            Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Are you sure you want to remove this book from your library?")
+            Text("This will remove \"\(viewModel.book?.title ?? "this book")\" from your library and all associated notes and reading sessions.")
         }
-        .task {
-            await viewModel.loadData()
+        .onAppear {
+            viewModel.loadData(context: modelContext)
         }
     }
 
@@ -150,10 +173,8 @@ struct BookDetailView: View {
                 .tint(Color.quietly.accent)
             } else if viewModel.userBook.status == .wantToRead {
                 Button {
-                    Task {
-                        await viewModel.updateStatus(.reading)
-                        showReadingSession = true
-                    }
+                    viewModel.updateStatus(.reading, context: modelContext)
+                    showReadingSession = true
                 } label: {
                     Label("Start Reading", systemImage: "play.fill")
                         .frame(maxWidth: .infinity)
@@ -166,7 +187,7 @@ struct BookDetailView: View {
             Menu {
                 ForEach(1...5, id: \.self) { rating in
                     Button {
-                        Task { await viewModel.updateRating(rating) }
+                        viewModel.updateRating(rating, context: modelContext)
                     } label: {
                         Label(
                             String(repeating: "★", count: rating),
@@ -242,7 +263,7 @@ struct BookDetailView: View {
                     Spacer()
 
                     Button("Save") {
-                        Task { await viewModel.addNote() }
+                        viewModel.addNote(context: modelContext)
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(Color.quietly.primary)
@@ -260,7 +281,7 @@ struct BookDetailView: View {
             } else {
                 ForEach(viewModel.notes) { note in
                     NoteCard(note: note) {
-                        Task { await viewModel.deleteNote(note) }
+                        viewModel.deleteNote(note, context: modelContext)
                     }
                 }
             }
@@ -290,22 +311,17 @@ struct StatItem: View {
     NavigationStack {
         BookDetailView(
             userBook: UserBook(
-                id: UUID(),
-                userId: UUID(),
-                bookId: UUID(),
-                status: .reading,
-                currentPage: 45,
-                rating: 4,
-                startedAt: Date(),
-                completedAt: nil,
-                createdAt: Date(),
-                updatedAt: Date(),
                 book: Book(
                     title: "The Great Gatsby",
                     author: "F. Scott Fitzgerald",
                     pageCount: 180
-                )
+                ),
+                status: .reading,
+                currentPage: 45,
+                rating: 4,
+                startedAt: Date()
             )
         )
     }
+    .modelContainer(for: [Book.self, UserBook.self, Note.self, ReadingSession.self, ReadingGoal.self], inMemory: true)
 }

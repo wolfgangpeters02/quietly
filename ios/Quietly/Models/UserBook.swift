@@ -1,32 +1,40 @@
 import Foundation
+import SwiftData
 
-struct UserBook: Codable, Identifiable, Hashable {
-    let id: UUID
-    let userId: UUID
-    let bookId: UUID
+@Model
+final class UserBook {
+    @Attribute(.unique) var id: UUID
     var status: ReadingStatus
     var currentPage: Int?
     var rating: Int?
     var startedAt: Date?
     var completedAt: Date?
-    let createdAt: Date
+    var createdAt: Date
     var updatedAt: Date
 
-    // Joined book data
+    // Relationship to Book
     var book: Book?
 
-    enum CodingKeys: String, CodingKey {
-        case id
-        case userId = "user_id"
-        case bookId = "book_id"
-        case status
-        case currentPage = "current_page"
-        case rating
-        case startedAt = "started_at"
-        case completedAt = "completed_at"
-        case createdAt = "created_at"
-        case updatedAt = "updated_at"
-        case book = "books"
+    init(
+        id: UUID = UUID(),
+        book: Book? = nil,
+        status: ReadingStatus = .wantToRead,
+        currentPage: Int? = nil,
+        rating: Int? = nil,
+        startedAt: Date? = nil,
+        completedAt: Date? = nil,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.book = book
+        self.status = status
+        self.currentPage = currentPage
+        self.rating = rating
+        self.startedAt = startedAt
+        self.completedAt = completedAt
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
     }
 
     // Computed properties
@@ -46,37 +54,5 @@ struct UserBook: Codable, Identifiable, Hashable {
 
     var isCompleted: Bool {
         status == .completed
-    }
-}
-
-// MARK: - Insert Model
-struct UserBookInsert: Codable {
-    let userId: UUID
-    let bookId: UUID
-    let status: ReadingStatus
-    let currentPage: Int?
-
-    enum CodingKeys: String, CodingKey {
-        case userId = "user_id"
-        case bookId = "book_id"
-        case status
-        case currentPage = "current_page"
-    }
-}
-
-// MARK: - Update Model
-struct UserBookUpdate: Codable {
-    var status: ReadingStatus?
-    var currentPage: Int?
-    var rating: Int?
-    var startedAt: Date?
-    var completedAt: Date?
-
-    enum CodingKeys: String, CodingKey {
-        case status
-        case currentPage = "current_page"
-        case rating
-        case startedAt = "started_at"
-        case completedAt = "completed_at"
     }
 }

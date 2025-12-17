@@ -1,10 +1,10 @@
 import Foundation
+import SwiftData
 
-struct ReadingSession: Codable, Identifiable {
-    let id: UUID
-    let userId: UUID
-    let bookId: UUID
-    let startedAt: Date
+@Model
+final class ReadingSession {
+    @Attribute(.unique) var id: UUID
+    var startedAt: Date
     var endedAt: Date?
     var durationSeconds: Int?
     var startPage: Int?
@@ -12,25 +12,35 @@ struct ReadingSession: Codable, Identifiable {
     var pagesRead: Int?
     var pausedAt: Date?
     var pausedDurationSeconds: Int?
-    let createdAt: Date
+    var createdAt: Date
 
-    // Joined book data (optional)
+    // Relationship to Book
     var book: Book?
 
-    enum CodingKeys: String, CodingKey {
-        case id
-        case userId = "user_id"
-        case bookId = "book_id"
-        case startedAt = "started_at"
-        case endedAt = "ended_at"
-        case durationSeconds = "duration_seconds"
-        case startPage = "start_page"
-        case endPage = "end_page"
-        case pagesRead = "pages_read"
-        case pausedAt = "paused_at"
-        case pausedDurationSeconds = "paused_duration_seconds"
-        case createdAt = "created_at"
-        case book = "books"
+    init(
+        id: UUID = UUID(),
+        book: Book? = nil,
+        startedAt: Date = Date(),
+        endedAt: Date? = nil,
+        durationSeconds: Int? = nil,
+        startPage: Int? = nil,
+        endPage: Int? = nil,
+        pagesRead: Int? = nil,
+        pausedAt: Date? = nil,
+        pausedDurationSeconds: Int? = nil,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.book = book
+        self.startedAt = startedAt
+        self.endedAt = endedAt
+        self.durationSeconds = durationSeconds
+        self.startPage = startPage
+        self.endPage = endPage
+        self.pagesRead = pagesRead
+        self.pausedAt = pausedAt
+        self.pausedDurationSeconds = pausedDurationSeconds
+        self.createdAt = createdAt
     }
 
     // Computed properties
@@ -59,41 +69,5 @@ struct ReadingSession: Codable, Identifiable {
               let seconds = durationSeconds, seconds > 0 else { return nil }
         let minutes = Double(seconds) / 60.0
         return Double(pages) / minutes
-    }
-}
-
-// MARK: - Insert Model
-struct ReadingSessionInsert: Codable {
-    let userId: UUID
-    let bookId: UUID
-    let startedAt: Date
-    let startPage: Int?
-
-    enum CodingKeys: String, CodingKey {
-        case userId = "user_id"
-        case bookId = "book_id"
-        case startedAt = "started_at"
-        case startPage = "start_page"
-    }
-}
-
-// MARK: - Update Model
-struct ReadingSessionUpdate: Codable {
-    var endedAt: Date?
-    var durationSeconds: Int?
-    var startPage: Int?
-    var endPage: Int?
-    var pagesRead: Int?
-    var pausedAt: Date?
-    var pausedDurationSeconds: Int?
-
-    enum CodingKeys: String, CodingKey {
-        case endedAt = "ended_at"
-        case durationSeconds = "duration_seconds"
-        case startPage = "start_page"
-        case endPage = "end_page"
-        case pagesRead = "pages_read"
-        case pausedAt = "paused_at"
-        case pausedDurationSeconds = "paused_duration_seconds"
     }
 }

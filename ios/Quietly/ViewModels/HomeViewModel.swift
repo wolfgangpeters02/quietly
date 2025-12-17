@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import SwiftData
 
 @MainActor
 final class HomeViewModel: ObservableObject {
@@ -15,6 +16,14 @@ final class HomeViewModel: ObservableObject {
     // MARK: - Dependencies
     private let bookService = BookService()
     private let sessionService = SessionService()
+    private let goalService = GoalService()
+
+    // MARK: - Goal Progress
+    @Published var goalProgress: [GoalProgress] = []
+
+    var dailyGoalProgress: GoalProgress? {
+        goalProgress.first { $0.goal.goalType == .dailyMinutes }
+    }
 
     // MARK: - Computed Properties
     var filteredBooks: [UserBook] {
@@ -44,52 +53,65 @@ final class HomeViewModel: ObservableObject {
     }
 
     // MARK: - Data Loading
-    func loadData() async {
+    func loadData(context: ModelContext) {
         isLoading = true
         error = nil
 
-        do {
-            async let booksTask = bookService.fetchUserBooks()
-            async let streakTask = sessionService.calculateReadingStreak()
+        userBooks = bookService.fetchUserBooks(context: context)
+        stats = bookService.getReadingStats(from: userBooks)
+        stats.readingStreak = sessionService.calculateReadingStreak(context: context)
 
-            let (books, streak) = try await (booksTask, streakTask)
+        // Load goal progress
+        let goals = goalService.fetchGoals(context: context)
+        goalProgress = goalService.calculateAllProgress(for: goals, context: context)
 
-            userBooks = books
-            stats = bookService.getReadingStats(from: books)
-            stats.readingStreak = streak
+        // Update widget data
+        updateWidgetData(context: context)
 
-        } catch {
-            self.error = error.localizedDescription
-        }
+        // Index books in Spotlight
+        SpotlightService.shared.indexAllBooks(userBooks)
 
         isLoading = false
     }
 
-    func refresh() async {
-        await loadData()
+    // MARK: - Widget Integration
+    private func updateWidgetData(context: ModelContext) {
+        let currentBook = currentlyReadingBook
+        let todayMinutes = sessionService.getTodayReadingMinutes(context: context)
+
+        WidgetDataProvider.shared.updateAllData(
+            currentBook: currentBook.map { book in
+                (
+                    title: book.book?.title,
+                    author: book.book?.author,
+                    progress: book.progress,
+                    coverUrl: book.book?.coverUrl
+                )
+            },
+            todayMinutes: todayMinutes,
+            streak: stats.readingStreak,
+            dailyGoalMinutes: 30, // Default, will be updated from goals
+            booksCompletedThisYear: stats.booksCompletedThisYear
+        )
+    }
+
+    func refresh(context: ModelContext) {
+        loadData(context: context)
     }
 
     // MARK: - Book Actions
-    func removeBook(_ userBook: UserBook) async {
-        do {
-            try await bookService.removeFromLibrary(userBookId: userBook.id)
-            userBooks.removeAll { $0.id == userBook.id }
-            stats = bookService.getReadingStats(from: userBooks)
-        } catch {
-            self.error = error.localizedDescription
-        }
+    func removeBook(_ userBook: UserBook, context: ModelContext) {
+        bookService.removeFromLibrary(userBook: userBook, context: context)
+        userBooks.removeAll { $0.id == userBook.id }
+        stats = bookService.getReadingStats(from: userBooks)
     }
 
-    func updateBookStatus(_ userBook: UserBook, to status: ReadingStatus) async {
-        do {
-            try await bookService.updateStatus(userBookId: userBook.id, status: status)
-            if let index = userBooks.firstIndex(where: { $0.id == userBook.id }) {
-                userBooks[index].status = status
-            }
-            stats = bookService.getReadingStats(from: userBooks)
-        } catch {
-            self.error = error.localizedDescription
+    func updateBookStatus(_ userBook: UserBook, to status: ReadingStatus, context: ModelContext) {
+        bookService.updateStatus(userBook: userBook, status: status, context: context)
+        if let index = userBooks.firstIndex(where: { $0.id == userBook.id }) {
+            userBooks[index].status = status
         }
+        stats = bookService.getReadingStats(from: userBooks)
     }
 
     // MARK: - Tab Counts

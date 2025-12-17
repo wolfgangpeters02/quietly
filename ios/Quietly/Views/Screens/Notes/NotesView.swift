@@ -1,6 +1,8 @@
 import SwiftUI
+import SwiftData
 
 struct NotesView: View {
+    @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel = NotesViewModel()
 
     var body: some View {
@@ -13,7 +15,7 @@ struct NotesView: View {
                                 DisclosureGroup {
                                     ForEach(group.notes) { note in
                                         NoteRow(note: note) {
-                                            Task { await viewModel.deleteNote(note) }
+                                            viewModel.deleteNote(note, context: modelContext)
                                         }
                                     }
                                 } label: {
@@ -35,10 +37,10 @@ struct NotesView: View {
             .navigationTitle("Notes")
             .searchable(text: $viewModel.searchText, prompt: "Search notes...")
             .refreshable {
-                await viewModel.refresh()
+                viewModel.refresh(context: modelContext)
             }
-            .task {
-                await viewModel.loadData()
+            .onAppear {
+                viewModel.loadData(context: modelContext)
             }
             .overlay {
                 if viewModel.isLoading && !viewModel.hasNotes {
@@ -138,4 +140,5 @@ struct NoteRow: View {
 
 #Preview {
     NotesView()
+        .modelContainer(for: [Book.self, UserBook.self, Note.self, ReadingSession.self, ReadingGoal.self], inMemory: true)
 }

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import SwiftData
 
 enum AddBookMethod: String, CaseIterable, Identifiable {
     case search
@@ -85,19 +86,24 @@ final class AddBookViewModel: ObservableObject {
         isLoading = false
     }
 
-    func selectSearchResult(_ result: OpenLibraryBook) async -> UserBook? {
+    func selectSearchResult(_ result: OpenLibraryBook, context: ModelContext) -> UserBook {
         isLoading = true
 
-        do {
-            let book = result.toBook()
-            let userBook = try await bookService.addBook(book, status: .wantToRead)
-            isLoading = false
-            return userBook
-        } catch {
-            self.error = error.localizedDescription
-            isLoading = false
-            return nil
-        }
+        let userBook = bookService.addBook(
+            title: result.title,
+            author: result.authorName?.first,
+            isbn: result.isbn?.first,
+            coverUrl: result.coverUrl,
+            publisher: result.publisher?.first,
+            publishedDate: result.firstPublishYear.map { String($0) },
+            pageCount: result.numberOfPages,
+            status: .wantToRead,
+            context: context
+        )
+
+        isLoading = false
+        HapticService.shared.bookAdded()
+        return userBook
     }
 
     // MARK: - ISBN Methods
@@ -124,24 +130,31 @@ final class AddBookViewModel: ObservableObject {
         isLoading = false
     }
 
-    func addISBNBook() async -> UserBook? {
+    func addISBNBook(context: ModelContext) -> UserBook? {
         guard let book = isbnBook else { return nil }
 
         isLoading = true
 
-        do {
-            let userBook = try await bookService.addBook(book, status: .wantToRead)
-            isLoading = false
-            return userBook
-        } catch {
-            self.error = error.localizedDescription
-            isLoading = false
-            return nil
-        }
+        let userBook = bookService.addBook(
+            title: book.title,
+            author: book.author,
+            isbn: book.isbn,
+            coverUrl: book.coverUrl,
+            publisher: book.publisher,
+            publishedDate: book.publishedDate,
+            bookDescription: book.bookDescription,
+            pageCount: book.pageCount,
+            status: .wantToRead,
+            context: context
+        )
+
+        isLoading = false
+        HapticService.shared.bookAdded()
+        return userBook
     }
 
     // MARK: - Manual Entry
-    func addManualBook() async -> UserBook? {
+    func addManualBook(context: ModelContext) -> UserBook? {
         guard !manualTitle.trimmed.isEmpty else {
             error = "Title is required"
             return nil
@@ -149,23 +162,18 @@ final class AddBookViewModel: ObservableObject {
 
         isLoading = true
 
-        do {
-            let book = Book(
-                title: manualTitle.trimmed,
-                author: manualAuthor.nilIfEmpty,
-                coverUrl: manualCoverUrl.nilIfEmpty,
-                pageCount: Int(manualPageCount),
-                manualEntry: true
-            )
+        let userBook = bookService.addBook(
+            title: manualTitle.trimmed,
+            author: manualAuthor.nilIfEmpty,
+            pageCount: Int(manualPageCount),
+            manualEntry: true,
+            status: .wantToRead,
+            context: context
+        )
 
-            let userBook = try await bookService.addBook(book, status: .wantToRead)
-            isLoading = false
-            return userBook
-        } catch {
-            self.error = error.localizedDescription
-            isLoading = false
-            return nil
-        }
+        isLoading = false
+        HapticService.shared.bookAdded()
+        return userBook
     }
 
     // MARK: - Clear Methods

@@ -4,6 +4,8 @@ struct BookCard: View {
     let userBook: UserBook
     var showProgress: Bool = true
     var onContinueReading: (() -> Void)?
+    var onStatusChange: ((ReadingStatus) -> Void)?
+    var onDelete: (() -> Void)?
 
     private var book: Book? { userBook.book }
 
@@ -73,7 +75,61 @@ struct BookCard: View {
         .background(Color.quietly.card)
         .cornerRadius(AppConstants.UI.cornerRadius)
         .shadow(color: Color.quietly.shadowBook, radius: 4, x: 0, y: 4)
+        .contextMenu {
+            bookContextMenu
+        }
     }
+
+    // MARK: - Context Menu
+    @ViewBuilder
+    private var bookContextMenu: some View {
+        // Reading actions based on status
+        if userBook.status != .reading {
+            Button {
+                HapticService.shared.selectionChanged()
+                onStatusChange?(.reading)
+            } label: {
+                Label("Start Reading", systemImage: "book.fill")
+            }
+        } else if let onContinue = onContinueReading {
+            Button {
+                HapticService.shared.buttonTap()
+                onContinue()
+            } label: {
+                Label("Continue Reading", systemImage: "play.fill")
+            }
+        }
+
+        Divider()
+
+        // Status change menu
+        Menu {
+            ForEach(ReadingStatus.allCases, id: \.self) { status in
+                if status != userBook.status {
+                    Button {
+                        HapticService.shared.selectionChanged()
+                        onStatusChange?(status)
+                    } label: {
+                        Label(status.displayName, systemImage: status.iconName)
+                    }
+                }
+            }
+        } label: {
+            Label("Change Status", systemImage: "arrow.triangle.2.circlepath")
+        }
+
+        Divider()
+
+        // Delete action
+        Button(role: .destructive) {
+            HapticService.shared.deleted()
+            onDelete?()
+        } label: {
+            Label("Remove from Library", systemImage: "trash")
+        }
+    }
+
+    @State private var bookIconAnimating = false
 
     private var placeholderCover: some View {
         Rectangle()
@@ -83,6 +139,8 @@ struct BookCard: View {
                 Image(systemName: "book.closed")
                     .font(.system(size: 32))
                     .foregroundColor(Color.quietly.mutedForeground)
+                    .symbolEffect(.pulse.byLayer, options: .repeating.speed(0.3), value: bookIconAnimating)
+                    .onAppear { bookIconAnimating = true }
             )
     }
 }

@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "Quietly",
     platforms: [
-        .iOS(.v16)
+        .iOS(.v17)
     ],
     products: [
         .library(
@@ -12,15 +12,11 @@ let package = Package(
             targets: ["Quietly"]
         ),
     ],
-    dependencies: [
-        .package(url: "https://github.com/supabase/supabase-swift.git", from: "2.0.0"),
-    ],
+    dependencies: [],
     targets: [
         .target(
             name: "Quietly",
-            dependencies: [
-                .product(name: "Supabase", package: "supabase-swift"),
-            ]
+            dependencies: []
         ),
     ]
 )

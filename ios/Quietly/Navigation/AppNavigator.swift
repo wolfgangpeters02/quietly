@@ -37,8 +37,9 @@ enum AppTab: String, CaseIterable, Identifiable {
 }
 
 struct MainTabView: View {
-    @EnvironmentObject var authService: AuthService
     @State private var selectedTab: AppTab = .home
+    @State private var showAddBook = false
+    @State private var showReadingSession = false
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -54,6 +55,21 @@ struct MainTabView: View {
             }
         }
         .tint(Color.quietly.primary)
+        .onReceive(NotificationCenter.default.publisher(for: .openReadingSession)) { _ in
+            selectedTab = .home
+            // The HomeView will handle showing the reading session
+            NotificationCenter.default.post(name: .triggerReadingSession, object: nil)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openGoalsView)) { _ in
+            selectedTab = .goals
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openLibrary)) { _ in
+            selectedTab = .home
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showAddBook)) { _ in
+            selectedTab = .home
+            showAddBook = true
+        }
     }
 
     @ViewBuilder
@@ -73,5 +89,5 @@ struct MainTabView: View {
 
 #Preview {
     MainTabView()
-        .environmentObject(AuthService())
+        .modelContainer(for: [Book.self, UserBook.self, Note.self, ReadingSession.self, ReadingGoal.self], inMemory: true)
 }

@@ -4,6 +4,7 @@ struct ReadingStats {
     var readingStreak: Int = 0
     var totalBooks: Int = 0
     var booksCompleted: Int = 0
+    var booksCompletedThisYear: Int = 0
     var booksReading: Int = 0
     var booksWantToRead: Int = 0
     var totalReadingMinutes: Int = 0

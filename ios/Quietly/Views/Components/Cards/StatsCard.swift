@@ -6,6 +6,8 @@ struct StatsCard: View {
     var subtitle: String?
     let icon: String
 
+    @State private var hasAppeared = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
@@ -17,13 +19,15 @@ struct StatsCard: View {
 
                 Image(systemName: icon)
                     .font(.caption)
-                    .foregroundColor(Color.quietly.accent)
+                    .foregroundColor(iconColor)
+                    .symbolEffect(.bounce, value: hasAppeared)
             }
 
             Text(value)
                 .font(.title2)
                 .fontWeight(.bold)
                 .foregroundColor(Color.quietly.textPrimary)
+                .contentTransition(.numericText())
 
             if let subtitle = subtitle {
                 Text(subtitle)
@@ -36,6 +40,22 @@ struct StatsCard: View {
         .background(Color.quietly.card)
         .cornerRadius(AppConstants.UI.cornerRadius)
         .shadow(color: Color.quietly.shadow, radius: 4, x: 0, y: 2)
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.5).delay(0.2)) {
+                hasAppeared = true
+            }
+        }
+    }
+
+    private var iconColor: Color {
+        switch icon {
+        case "flame.fill":
+            return .orange
+        case "checkmark.circle.fill":
+            return Color.quietly.success
+        default:
+            return Color.quietly.accent
+        }
     }
 }
 

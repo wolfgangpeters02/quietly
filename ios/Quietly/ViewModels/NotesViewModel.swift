@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import SwiftData
 
 @MainActor
 final class NotesViewModel: ObservableObject {
@@ -38,32 +39,25 @@ final class NotesViewModel: ObservableObject {
     }
 
     // MARK: - Data Loading
-    func loadData() async {
+    func loadData(context: ModelContext) {
         isLoading = true
 
-        do {
-            allNotes = try await noteService.fetchAllNotes()
-            groupedNotes = noteService.groupNotesByBook(allNotes)
-        } catch {
-            self.error = error.localizedDescription
-        }
+        allNotes = noteService.fetchAllNotes(context: context)
+        groupedNotes = noteService.groupNotesByBook(allNotes)
 
         isLoading = false
     }
 
-    func refresh() async {
-        await loadData()
+    func refresh(context: ModelContext) {
+        loadData(context: context)
     }
 
     // MARK: - Note Actions
-    func deleteNote(_ note: Note) async {
-        do {
-            try await noteService.deleteNote(noteId: note.id)
-            allNotes.removeAll { $0.id == note.id }
-            groupedNotes = noteService.groupNotesByBook(allNotes)
-        } catch {
-            self.error = error.localizedDescription
-        }
+    func deleteNote(_ note: Note, context: ModelContext) {
+        noteService.deleteNote(note, context: context)
+        allNotes.removeAll { $0.id == note.id }
+        groupedNotes = noteService.groupNotesByBook(allNotes)
+        HapticService.shared.deleted()
     }
 
     // MARK: - Search

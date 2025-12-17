@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import SwiftData
 
 @MainActor
 final class GoalsViewModel: ObservableObject {
@@ -41,39 +42,29 @@ final class GoalsViewModel: ObservableObject {
     }
 
     // MARK: - Data Loading
-    func loadData() async {
+    func loadData(context: ModelContext) {
         isLoading = true
 
-        do {
-            async let goalsTask = goalService.fetchGoals()
-            async let typesTask = goalService.getAvailableGoalTypes()
+        goals = goalService.fetchGoals(context: context)
+        availableTypes = goalService.getAvailableGoalTypes(context: context)
 
-            let (fetchedGoals, fetchedTypes) = try await (goalsTask, typesTask)
-
-            goals = fetchedGoals
-            availableTypes = fetchedTypes
-
-            if let firstAvailable = fetchedTypes.first {
-                newGoalType = firstAvailable
-                newTargetValue = suggestedTarget
-            }
-
-            // Calculate progress for all goals
-            progressList = try await goalService.calculateAllProgress(for: fetchedGoals)
-
-        } catch {
-            self.error = error.localizedDescription
+        if let firstAvailable = availableTypes.first {
+            newGoalType = firstAvailable
+            newTargetValue = suggestedTarget
         }
+
+        // Calculate progress for all goals
+        progressList = goalService.calculateAllProgress(for: goals, context: context)
 
         isLoading = false
     }
 
-    func refresh() async {
-        await loadData()
+    func refresh(context: ModelContext) {
+        loadData(context: context)
     }
 
     // MARK: - Goal Actions
-    func addGoal() async {
+    func addGoal(context: ModelContext) {
         guard newTargetValue > 0 else {
             error = "Target must be greater than 0"
             return
@@ -81,65 +72,54 @@ final class GoalsViewModel: ObservableObject {
 
         isLoading = true
 
-        do {
-            let goal = try await goalService.upsertGoal(
-                goalType: newGoalType,
-                targetValue: newTargetValue
-            )
+        let goal = goalService.upsertGoal(
+            goalType: newGoalType,
+            targetValue: newTargetValue,
+            context: context
+        )
 
-            goals.append(goal)
-            availableTypes.removeAll { $0 == newGoalType }
+        goals.append(goal)
+        availableTypes.removeAll { $0 == newGoalType }
 
-            // Calculate progress for new goal
-            let progress = try await goalService.calculateProgress(for: goal)
-            progressList.append(progress)
+        // Calculate progress for new goal
+        let progress = goalService.calculateProgress(for: goal, context: context)
+        progressList.append(progress)
 
-            // Reset form
-            if let nextType = availableTypes.first {
-                newGoalType = nextType
-                newTargetValue = suggestedTarget
-            }
-
-            showAddGoal = false
-
-        } catch {
-            self.error = error.localizedDescription
+        // Reset form
+        if let nextType = availableTypes.first {
+            newGoalType = nextType
+            newTargetValue = suggestedTarget
         }
 
+        showAddGoal = false
         isLoading = false
+        HapticService.shared.success()
     }
 
-    func deleteGoal(_ goal: ReadingGoal) async {
-        do {
-            try await goalService.deleteGoal(goalId: goal.id)
-            goals.removeAll { $0.id == goal.id }
-            progressList.removeAll { $0.id == goal.id }
-            availableTypes.append(goal.goalType)
-            availableTypes.sort { $0.rawValue < $1.rawValue }
-        } catch {
-            self.error = error.localizedDescription
-        }
+    func deleteGoal(_ goal: ReadingGoal, context: ModelContext) {
+        goalService.deleteGoal(goal, context: context)
+        goals.removeAll { $0.id == goal.id }
+        progressList.removeAll { $0.id == goal.id }
+        availableTypes.append(goal.goalType)
+        availableTypes.sort { $0.rawValue < $1.rawValue }
+        HapticService.shared.deleted()
     }
 
-    func updateGoalTarget(_ goal: ReadingGoal, newTarget: Int) async {
+    func updateGoalTarget(_ goal: ReadingGoal, newTarget: Int, context: ModelContext) {
         guard newTarget > 0 else { return }
 
-        do {
-            try await goalService.updateGoalTarget(goalId: goal.id, targetValue: newTarget)
+        goalService.updateGoalTarget(goal, targetValue: newTarget, context: context)
 
-            if let index = goals.firstIndex(where: { $0.id == goal.id }) {
-                goals[index].targetValue = newTarget
-            }
+        if let index = goals.firstIndex(where: { $0.id == goal.id }) {
+            goals[index].targetValue = newTarget
+        }
 
-            // Recalculate progress
-            if let index = progressList.firstIndex(where: { $0.id == goal.id }) {
-                let updatedGoal = goals.first { $0.id == goal.id }!
-                let newProgress = try await goalService.calculateProgress(for: updatedGoal)
+        // Recalculate progress
+        if let index = progressList.firstIndex(where: { $0.id == goal.id }) {
+            if let updatedGoal = goals.first(where: { $0.id == goal.id }) {
+                let newProgress = goalService.calculateProgress(for: updatedGoal, context: context)
                 progressList[index] = newProgress
             }
-
-        } catch {
-            self.error = error.localizedDescription
         }
     }
 

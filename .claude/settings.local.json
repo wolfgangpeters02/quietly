@@ -9,7 +9,13 @@
       "Bash(git init:*)",
       "Bash(git remote add:*)",
       "Bash(git fetch:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(echo:*)",
+      "Bash(git -C \"C:/dev/quietly\" status --short)",
+      "Bash(cat:*)",
+      "Bash(file=\"/c/dev/quietly/ios/Quietly/App/QuietlyApp.swift\")",
+      "Bash(test:*)"
     ]
   }
 }

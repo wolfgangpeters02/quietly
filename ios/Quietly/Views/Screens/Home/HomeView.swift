@@ -1,13 +1,33 @@
 import SwiftUI
+import SwiftData
+import TipKit
 
 struct HomeView: View {
+    @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel = HomeViewModel()
     @State private var selectedBook: UserBook?
+    @State private var bookToDelete: UserBook?
+
+    // Tips
+    private let addFirstBookTip = AddFirstBookTip()
+    private let longPressTip = LongPressTip()
+    private let startReadingTip = StartReadingTip()
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
+                    // Currently reading - Quick access
+                    if let currentBook = viewModel.currentlyReadingBook {
+                        CurrentlyReadingCard(
+                            userBook: currentBook,
+                            onContinue: {
+                                selectedBook = currentBook
+                            }
+                        )
+                        .padding(.horizontal)
+                    }
+
                     // Stats row
                     HStack(spacing: 12) {
                         StatsCard(
@@ -32,6 +52,26 @@ struct HomeView: View {
                         )
                     }
                     .padding(.horizontal)
+
+                    // Goal progress section
+                    if !viewModel.goalProgress.isEmpty {
+                        GoalProgressSection(progressList: viewModel.goalProgress)
+                            .padding(.horizontal)
+                    }
+
+                    // Tips
+                    if viewModel.userBooks.isEmpty {
+                        TipView(addFirstBookTip)
+                            .padding(.horizontal)
+                    } else if viewModel.readingBooks.count >= 1 {
+                        TipView(startReadingTip)
+                            .padding(.horizontal)
+                    }
+
+                    if viewModel.userBooks.count >= 2 {
+                        TipView(longPressTip)
+                            .padding(.horizontal)
+                    }
 
                     // Tab picker
                     Picker("Filter", selection: $viewModel.selectedTab) {
@@ -67,9 +107,18 @@ struct HomeView: View {
                         ) {
                             ForEach(viewModel.filteredBooks) { userBook in
                                 NavigationLink(value: userBook) {
-                                    BookCard(userBook: userBook) {
-                                        selectedBook = userBook
-                                    }
+                                    BookCard(
+                                        userBook: userBook,
+                                        onContinueReading: {
+                                            selectedBook = userBook
+                                        },
+                                        onStatusChange: { status in
+                                            viewModel.updateBookStatus(userBook, to: status, context: modelContext)
+                                        },
+                                        onDelete: {
+                                            bookToDelete = userBook
+                                        }
+                                    )
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -91,9 +140,7 @@ struct HomeView: View {
             }
             .sheet(isPresented: $viewModel.showAddBook) {
                 AddBookSheet {
-                    Task {
-                        await viewModel.refresh()
-                    }
+                    viewModel.refresh(context: modelContext)
                 }
             }
             .sheet(item: $selectedBook) { userBook in
@@ -101,16 +148,52 @@ struct HomeView: View {
                     ReadingSessionView(userBook: userBook)
                 }
             }
+            .searchable(text: $viewModel.searchText, prompt: "Search your library")
             .refreshable {
-                await viewModel.refresh()
+                viewModel.refresh(context: modelContext)
             }
-            .task {
-                await viewModel.loadData()
+            .onAppear {
+                viewModel.loadData(context: modelContext)
+            }
+            .onChange(of: viewModel.userBooks.count) { _, newCount in
+                // Update tip parameters
+                ScanBookTip.hasAddedBook = newCount > 0
+                StartReadingTip.hasAddedBook = newCount > 0
+                LongPressTip.bookCount = newCount
+            }
+            .confirmationDialog(
+                "Remove Book",
+                isPresented: Binding(
+                    get: { bookToDelete != nil },
+                    set: { if !$0 { bookToDelete = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Remove from Library", role: .destructive) {
+                    if let book = bookToDelete {
+                        viewModel.removeBook(book, context: modelContext)
+                        bookToDelete = nil
+                    }
+                }
+                Button("Cancel", role: .cancel) {
+                    bookToDelete = nil
+                }
+            } message: {
+                Text("This will remove \"\(bookToDelete?.book?.title ?? "this book")\" from your library.")
             }
             .overlay {
                 if viewModel.isLoading && viewModel.userBooks.isEmpty {
                     LoadingView(message: "Loading your library...")
                 }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .triggerReadingSession)) { _ in
+                // Open reading session for currently reading book
+                if let currentBook = viewModel.currentlyReadingBook {
+                    selectedBook = currentBook
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .showAddBook)) { _ in
+                viewModel.showAddBook = true
             }
         }
     }
@@ -142,6 +225,75 @@ struct HomeView: View {
     }
 }
 
+// MARK: - Currently Reading Card (Hero Section)
+
+struct CurrentlyReadingCard: View {
+    let userBook: UserBook
+    let onContinue: () -> Void
+
+    private var book: Book? { userBook.book }
+
+    var body: some View {
+        Button(action: onContinue) {
+            HStack(spacing: 16) {
+                // Book cover
+                AsyncImage(url: URL(string: book?.coverUrl ?? "")) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    case .failure, .empty:
+                        Rectangle()
+                            .fill(Color.quietly.secondary)
+                            .overlay(
+                                Image(systemName: "book.closed")
+                                    .foregroundColor(Color.quietly.mutedForeground)
+                            )
+                    @unknown default:
+                        EmptyView()
+                    }
+                }
+                .frame(width: 60, height: 90)
+                .cornerRadius(8)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Continue Reading")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.quietly.accent)
+
+                    Text(book?.title ?? "Unknown")
+                        .font(.headline)
+                        .foregroundColor(Color.quietly.textPrimary)
+                        .lineLimit(2)
+
+                    if let author = book?.author {
+                        Text(author)
+                            .font(.subheadline)
+                            .foregroundColor(Color.quietly.textSecondary)
+                            .lineLimit(1)
+                    }
+
+                    ProgressView(value: userBook.progress)
+                        .tint(Color.quietly.accent)
+                }
+
+                Spacer()
+
+                Image(systemName: "play.circle.fill")
+                    .font(.system(size: 44))
+                    .foregroundColor(Color.quietly.accent)
+            }
+            .padding()
+            .background(Color.quietly.card)
+            .cornerRadius(AppConstants.UI.cornerRadius)
+            .shadow(color: Color.quietly.shadowBook, radius: 8, x: 0, y: 4)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Add Book Card
+
 struct AddBookCard: View {
     let action: () -> Void
 
@@ -170,6 +322,123 @@ struct AddBookCard: View {
     }
 }
 
+// MARK: - Goal Progress Section
+
+struct GoalProgressSection: View {
+    let progressList: [GoalProgress]
+
+    @State private var hasAppeared = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Today's Goals")
+                    .font(.headline)
+                    .foregroundColor(Color.quietly.textPrimary)
+
+                Spacer()
+
+                NavigationLink {
+                    GoalsView()
+                } label: {
+                    Text("See All")
+                        .font(.caption)
+                        .foregroundColor(Color.quietly.primary)
+                }
+            }
+
+            // Show daily/weekly goals prominently
+            ForEach(progressList.filter { $0.goal.goalType == .dailyMinutes || $0.goal.goalType == .weeklyMinutes }) { progress in
+                MiniGoalCard(progress: progress, hasAppeared: hasAppeared)
+            }
+
+            // Show book goals in a compact row
+            let bookGoals = progressList.filter { $0.goal.goalType == .booksPerMonth || $0.goal.goalType == .booksPerYear }
+            if !bookGoals.isEmpty {
+                HStack(spacing: 12) {
+                    ForEach(bookGoals) { progress in
+                        CompactGoalBadge(progress: progress)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color.quietly.card)
+        .cornerRadius(AppConstants.UI.cornerRadius)
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.5).delay(0.3)) {
+                hasAppeared = true
+            }
+        }
+    }
+}
+
+// MARK: - Mini Goal Card
+
+struct MiniGoalCard: View {
+    let progress: GoalProgress
+    let hasAppeared: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: progress.goal.goalType.iconName)
+                    .font(.subheadline)
+                    .foregroundColor(progress.isComplete ? Color.quietly.success : Color.quietly.accent)
+                    .symbolEffect(.bounce, value: progress.isComplete && hasAppeared)
+
+                Text(progress.goal.goalType.displayName)
+                    .font(.subheadline)
+                    .foregroundColor(Color.quietly.textPrimary)
+
+                Spacer()
+
+                Text(progress.progressText)
+                    .font(.caption)
+                    .foregroundColor(Color.quietly.textSecondary)
+
+                if progress.isComplete {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundColor(Color.quietly.success)
+                        .symbolEffect(.pulse.wholeSymbol, options: .repeating.speed(0.5), value: hasAppeared)
+                }
+            }
+
+            ProgressView(value: progress.progress)
+                .tint(progress.isComplete ? Color.quietly.success : Color.quietly.accent)
+        }
+    }
+}
+
+// MARK: - Compact Goal Badge
+
+struct CompactGoalBadge: View {
+    let progress: GoalProgress
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: progress.goal.goalType.iconName)
+                .font(.caption)
+                .foregroundColor(progress.isComplete ? Color.quietly.success : Color.quietly.textSecondary)
+
+            Text("\(progress.currentValue)/\(progress.targetValue)")
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(progress.isComplete ? Color.quietly.success : Color.quietly.textPrimary)
+
+            Text(progress.goal.goalType == .booksPerMonth ? "this month" : "this year")
+                .font(.caption2)
+                .foregroundColor(Color.quietly.textSecondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.quietly.secondary)
+        .cornerRadius(20)
+    }
+}
+
 #Preview {
     HomeView()
+        .modelContainer(for: [Book.self, UserBook.self, Note.self, ReadingSession.self, ReadingGoal.self], inMemory: true)
 }

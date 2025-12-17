@@ -1,6 +1,8 @@
 import SwiftUI
+import SwiftData
 
 struct AddBookSheet: View {
+    @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel = AddBookViewModel()
     @Environment(\.dismiss) private var dismiss
     var onBookAdded: (() -> Void)?
@@ -80,12 +82,9 @@ struct AddBookSheet: View {
                 LazyVStack(spacing: 12) {
                     ForEach(viewModel.searchResults) { result in
                         SearchResultCard(book: result) {
-                            Task {
-                                if let _ = await viewModel.selectSearchResult(result) {
-                                    onBookAdded?()
-                                    dismiss()
-                                }
-                            }
+                            let _ = viewModel.selectSearchResult(result, context: modelContext)
+                            onBookAdded?()
+                            dismiss()
                         }
                     }
                 }
@@ -133,11 +132,9 @@ struct AddBookSheet: View {
                     BookPreviewCard(book: book)
 
                     Button {
-                        Task {
-                            if let _ = await viewModel.addISBNBook() {
-                                onBookAdded?()
-                                dismiss()
-                            }
+                        if let _ = viewModel.addISBNBook(context: modelContext) {
+                            onBookAdded?()
+                            dismiss()
                         }
                     } label: {
                         Text("Add to Library")
@@ -197,11 +194,9 @@ struct AddBookSheet: View {
             }
 
             Button {
-                Task {
-                    if let _ = await viewModel.addManualBook() {
-                        onBookAdded?()
-                        dismiss()
-                    }
+                if let _ = viewModel.addManualBook(context: modelContext) {
+                    onBookAdded?()
+                    dismiss()
                 }
             } label: {
                 Text("Add to Library")
@@ -330,4 +325,5 @@ struct BookPreviewCard: View {
 
 #Preview {
     AddBookSheet()
+        .modelContainer(for: [Book.self, UserBook.self, Note.self, ReadingSession.self, ReadingGoal.self], inMemory: true)
 }

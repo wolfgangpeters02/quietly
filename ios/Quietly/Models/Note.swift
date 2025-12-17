@@ -1,28 +1,34 @@
 import Foundation
+import SwiftData
 
-struct Note: Codable, Identifiable {
-    let id: UUID
-    let userId: UUID
-    let bookId: UUID
-    let content: String
-    let noteType: NoteType
-    let pageNumber: Int?
-    let createdAt: Date
+@Model
+final class Note {
+    @Attribute(.unique) var id: UUID
+    var content: String
+    var noteType: NoteType
+    var pageNumber: Int?
+    var createdAt: Date
     var updatedAt: Date
 
-    // Joined book data (for Notes view)
+    // Relationship to Book
     var book: Book?
 
-    enum CodingKeys: String, CodingKey {
-        case id
-        case userId = "user_id"
-        case bookId = "book_id"
-        case content
-        case noteType = "note_type"
-        case pageNumber = "page_number"
-        case createdAt = "created_at"
-        case updatedAt = "updated_at"
-        case book = "books"
+    init(
+        id: UUID = UUID(),
+        book: Book? = nil,
+        content: String,
+        noteType: NoteType = .note,
+        pageNumber: Int? = nil,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.book = book
+        self.content = content
+        self.noteType = noteType
+        self.pageNumber = pageNumber
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
     }
 
     var formattedDate: String {
@@ -35,23 +41,6 @@ struct Note: Codable, Identifiable {
     var pageLabel: String? {
         guard let page = pageNumber else { return nil }
         return "p. \(page)"
-    }
-}
-
-// MARK: - Insert Model
-struct NoteInsert: Codable {
-    let userId: UUID
-    let bookId: UUID
-    let content: String
-    let noteType: NoteType
-    let pageNumber: Int?
-
-    enum CodingKeys: String, CodingKey {
-        case userId = "user_id"
-        case bookId = "book_id"
-        case content
-        case noteType = "note_type"
-        case pageNumber = "page_number"
     }
 }
 

@@ -7,11 +7,14 @@ struct EmptyStateView: View {
     var actionTitle: String?
     var action: (() -> Void)?
 
+    @State private var isAnimating = false
+
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: icon)
                 .font(.system(size: 60))
                 .foregroundColor(Color.quietly.mutedForeground)
+                .symbolEffect(.bounce.byLayer, value: isAnimating)
 
             VStack(spacing: 8) {
                 Text(title)
@@ -36,6 +39,9 @@ struct EmptyStateView: View {
         }
         .padding(40)
         .frame(maxWidth: .infinity)
+        .onAppear {
+            isAnimating = true
+        }
     }
 }
 

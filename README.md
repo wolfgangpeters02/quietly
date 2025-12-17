@@ -8,6 +8,7 @@ A reading tracker app to help you build consistent reading habits.
 |----------|----------|-------|
 | **Web** | [`/web`](./web) | React + TypeScript + Vite + Tailwind |
 | **iOS** | [`/ios`](./ios) | SwiftUI + Swift |
+| **Android** | [`/android`](./android) | Kotlin + Jetpack Compose |
 
 ## Features
 
@@ -20,7 +21,7 @@ A reading tracker app to help you build consistent reading habits.
 
 ## Backend
 
-Both apps share a [Supabase](https://supabase.com) backend:
+All apps share a [Supabase](https://supabase.com) backend:
 - PostgreSQL database
 - Email/password authentication
 - Row-Level Security (RLS)
@@ -40,6 +41,12 @@ npm run dev
 1. Open `/ios` in Xcode
 2. Add Swift Package: `https://github.com/supabase/supabase-swift`
 3. Build and run
+
+### Android App
+
+1. Open `/android` in Android Studio
+2. Sync Gradle dependencies
+3. Build and run (requires Android 8.0+ / API 26+)
 
 ## License
 
