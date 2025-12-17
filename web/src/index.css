@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Warm, literary color palette */
+    --background: 38 22% 97%;
+    --foreground: 32 18% 22%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 32 18% 22%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 32 18% 22%;
+
+    /* Rich brown primary */
+    --primary: 32 35% 38%;
+    --primary-foreground: 38 22% 97%;
+
+    /* Warm secondary */
+    --secondary: 38 18% 92%;
+    --secondary-foreground: 32 18% 22%;
+
+    /* Muted warm tones */
+    --muted: 38 15% 90%;
+    --muted-foreground: 32 10% 50%;
+
+    /* Sage green accent */
+    --accent: 150 25% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 32 12% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 38 15% 88%;
+    --input: 38 15% 88%;
+    --ring: 150 25% 55%;
+
+    --radius: 0.75rem;
+
+    /* Custom design tokens */
+    --gradient-warm: linear-gradient(135deg, hsl(38 22% 97%) 0%, hsl(38 18% 92%) 100%);
+    --shadow-book: 0 4px 12px -2px hsl(32 35% 38% / 0.12);
+    --shadow-reading: 0 8px 24px -4px hsl(150 25% 55% / 0.15);
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dark {
+    --background: 32 22% 12%;
+    --foreground: 38 15% 90%;
+
+    --card: 32 18% 16%;
+    --card-foreground: 38 15% 90%;
+
+    --popover: 32 18% 16%;
+    --popover-foreground: 38 15% 90%;
+
+    --primary: 38 25% 75%;
+    --primary-foreground: 32 18% 22%;
+
+    --secondary: 32 15% 20%;
+    --secondary-foreground: 38 15% 90%;
+
+    --muted: 32 12% 24%;
+    --muted-foreground: 38 8% 65%;
+
+    --accent: 150 25% 45%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 32 10% 40%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 32 12% 24%;
+    --input: 32 12% 24%;
+    --ring: 150 25% 45%;
+
+    --gradient-warm: linear-gradient(135deg, hsl(32 22% 12%) 0%, hsl(32 18% 16%) 100%);
+    --shadow-book: 0 4px 12px -2px hsl(0 0% 0% / 0.3);
+    --shadow-reading: 0 8px 24px -4px hsl(150 25% 45% / 0.2);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "liga" 1, "calt" 1;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .gradient-warm {
+    background: var(--gradient-warm);
+  }
+  
+  .shadow-book {
+    box-shadow: var(--shadow-book);
+  }
+  
+  .shadow-reading {
+    box-shadow: var(--shadow-reading);
+  }
+  
+  .transition-smooth {
+    transition: var(--transition-smooth);
+  }
+}
