@@ -1,0 +1,6 @@
+- some boxes (like Page) are still not with rounded edges
+- sometimes the input (opening the keyword) gets in the way of hitting the button or so. can the keyword disappear each time the user taps outside of the text input box? 
+- Adding a book: search by title or aurthor -field needs rounded corners, and ISBN search has a too big "Lookup" button -- it should be the same magnifying glass as under "Search"
+- when I'm not reading (timer stopped), there should be no lockscreen window (but maybe that's the case and there was just a short delay in the dissapearing). But while I'm reading, can the timer run? right now it's static
+- in notes, when there's a long note, it's cut of and I can't tap on it to read the full note.
+- the star-button is too big - or the "Start Reading" button next to it is too small - they should have the same size (heigth)

@@ -15,7 +15,20 @@
       "Bash(git -C \"C:/dev/quietly\" status --short)",
       "Bash(cat:*)",
       "Bash(file=\"/c/dev/quietly/ios/Quietly/App/QuietlyApp.swift\")",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(rm:*)",
+      "Bash(brew list:*)",
+      "Bash(brew install:*)",
+      "Bash(/opt/homebrew/bin/brew install xcodegen)",
+      "Bash(/usr/local/bin/brew install xcodegen)",
+      "Bash(/opt/homebrew/bin/xcodegen generate:*)",
+      "Bash(xcodebuild:*)",
+      "Bash(xcrun simctl:*)",
+      "Bash(xcodegen generate:*)",
+      "Bash(git -C /Users/wolfgangpeters/Documents/quietly remote:*)",
+      "Bash(git -C /Users/wolfgangpeters/Documents/quietly status --short)",
+      "Bash(git -C /Users/wolfgangpeters/Documents/quietly log --oneline -5)",
+      "Bash(git reset:*)"
     ]
   }
 }
